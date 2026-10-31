@@ -1,0 +1,31 @@
+{
+  "id": "/",
+  "name": "Ángulo de Maniobra",
+  "short_name": "Ángulo",
+  "description": "Coche visto desde arriba que sigue el giro del coche real, con avisos a 25° y 45°.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0e141c",
+  "theme_color": "#0e141c",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
