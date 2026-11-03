@@ -1,0 +1,43 @@
+name: Compilar APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Copiar la app web dentro del APK
+        run: |
+          mkdir -p android/app/src/main/assets/www
+          rsync -a --exclude android --exclude .github --exclude .git --exclude '*.md' --exclude _headers ./ android/app/src/main/assets/www/
+          ls -la android/app/src/main/assets/www
+      - name: Compilar
+        working-directory: android
+        run: gradle :app:assembleRelease --stacktrace
+      - name: Preparar APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk Angulo.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Angulo
+          path: Angulo.apk
+      - name: Publicar versión
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Ángulo 1.0.${{ github.run_number }}
+          files: Angulo.apk
+          make_latest: true

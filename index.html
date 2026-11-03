@@ -329,6 +329,7 @@ $('logb').addEventListener('click',()=>{renderLog();$('sheet').hidden=false});
 $('close').addEventListener('click',()=>{$('sheet').hidden=true});
 $('clear').addEventListener('click',()=>{if(confirm('¿Borrar el registro?')){LOG=[];try{localStorage.removeItem('angLog')}catch(e){}renderLog()}});
 $('share').addEventListener('click',async()=>{const v=core.vib,txt='Ángulo de Maniobra · registro\nAjustes: '+JSON.stringify(user)+'\nVibración parado '+v.rest.toFixed(2)+' / en marcha '+v.move.toFixed(2)+'\n\n'+LOG.join('\n');
+  if(window.AndroidApp&&AndroidApp.compartir){AndroidApp.compartir(txt);return} // app de Android
   try{if(navigator.share){await navigator.share({title:'Registro Ángulo de Maniobra',text:txt});return}}catch(e){if(e.name==='AbortError')return}
   try{await navigator.clipboard.writeText(txt);toast('Registro copiado')}catch(e){toast('No se pudo copiar')}});
 $('paste').addEventListener('click',()=>{const s=prompt('Pega aquí los ajustes copiados del simulador (vacío = valores de fábrica):',JSON.stringify(user));if(s==null)return;
