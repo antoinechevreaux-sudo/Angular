@@ -1,17 +1,23 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0e141c"><link rel="manifest" href="manifest.json"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png"><style>*{box-sizing:border-box}[hidden]{display:none!important}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style></head><body><title>Ángulo de Maniobra</title>
-<meta name="claude:viewport-fit-sides" content="cover">
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<title>Ángulo de Maniobra</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0e141c">
+<link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&display=swap">
 <style>
-/* Layout: one screen. Car centred on a dark road; big angle number and a −45…+45 bar at the bottom. Nothing else. */
 :root{
   --bg:#0e141c; --road:#151d27; --line:#2a3644; --fg:#eef1f4; --muted:#8a99a8;
   --ok:#5fc7b8; --amber:#f2b33d; --stop:#f0645a; --car:#e8edf2; --glass:#4f6a86;
   --f-num:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
   color-scheme:dark;
 }
-html,body{height:100%}
-body{background:var(--bg);color:var(--fg);font-family:var(--f-num);overflow:hidden;margin:0;
-  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-num);overflow:hidden;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box}
 .app{height:100%;display:flex;flex-direction:column}
 canvas{display:block;width:100%;flex:1;min-height:0}
 .panel{padding-block:10px 18px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
@@ -24,24 +30,34 @@ canvas{display:block;width:100%;flex:1;min-height:0}
 .tick{position:absolute;top:0;bottom:0;width:2px;transform:translateX(-1px)}
 .t25{background:var(--amber)} .t45{background:var(--stop)} .t0{background:var(--muted);opacity:.5}
 .lbl{position:absolute;bottom:-16px;transform:translateX(-50%);font-size:14px;color:var(--muted)}
-.reset{font:inherit;font-weight:600;font-size:20px;letter-spacing:.06em;color:var(--fg);background:var(--line);border:0;border-radius:10px;padding:14px;cursor:pointer}
+.btns{display:flex;gap:8px}
+.reset{flex:1;font:inherit;font-weight:600;font-size:20px;letter-spacing:.06em;color:var(--fg);background:var(--line);border:0;border-radius:10px;padding:14px;cursor:pointer}
 .reset:active{background:var(--muted);color:var(--bg)}
-.reset:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.reset:focus-visible,.logb:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.logb{font:inherit;font-weight:600;font-size:16px;color:var(--muted);background:var(--road);border:1px solid var(--line);border-radius:10px;padding:0 16px;cursor:pointer}
 .overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;
   background:color-mix(in srgb,var(--bg) 82%,transparent);padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px));cursor:pointer}
 .overlay b{font-size:34px;letter-spacing:.04em}
 .overlay span{font-family:system-ui,sans-serif;font-size:15px;color:var(--muted);max-width:30ch;line-height:1.4}
 .install{font:inherit;font-weight:600;font-size:20px;letter-spacing:.04em;color:#06201c;background:var(--ok);border:0;border-radius:10px;padding:14px 22px;margin-top:10px;cursor:pointer}
-.install:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 .status{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:max(16px,env(safe-area-inset-left,0px));font-weight:600;font-size:17px;letter-spacing:.05em;text-transform:uppercase;
   color:var(--muted);background:var(--road);border:1px solid var(--line);padding:5px 10px;border-radius:6px;font-variant-numeric:tabular-nums}
 .status.park{color:var(--ok);border-color:var(--ok)} .status.stop{color:var(--amber);border-color:var(--amber)}
-.app.idle .panel,.app.idle canvas{opacity:.35;transition:opacity .4s}
+.app.idle .panel .deg,.app.idle .panel .bar,.app.idle canvas{opacity:.35;transition:opacity .4s}
 .msg{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);font-family:system-ui,sans-serif;font-size:14px;
   color:var(--fg);background:var(--line);padding:6px 12px;border-radius:6px;opacity:0;transition:opacity .4s;pointer-events:none;max-width:90vw;text-align:center}
 .msg.on{opacity:1}
+.sheet{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;font-family:system-ui,sans-serif;
+  padding:calc(12px + env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(14px,env(safe-area-inset-left,0px));gap:10px}
+.sheet[hidden]{display:none}
+.sheet h2{margin:0;font:700 24px var(--f-num);letter-spacing:.04em}
+.sheet .vib{font-size:13px;color:var(--muted);line-height:1.4}
+.sheet pre{flex:1;margin:0;overflow:auto;background:#0a0f15;border:1px solid var(--line);border-radius:8px;padding:8px;font:12px ui-monospace,Menlo,Consolas,monospace;color:#b9c4cf;white-space:pre-wrap;-webkit-user-select:text;user-select:text}
+.sheet .row{display:flex;gap:8px;flex-wrap:wrap}
+.sheet .row button{flex:1 1 40%;font:600 15px system-ui,sans-serif;color:var(--fg);background:var(--line);border:0;border-radius:9px;padding:12px 8px;cursor:pointer}
+.sheet .row button.pri{background:var(--ok);color:#06201c}
 @media (prefers-reduced-motion:reduce){.deg,.msg{transition:none}}
-</style>
+</style></head><body>
 
 <div class="app" id="app">
   <canvas id="cv" aria-label="Coche visto desde arriba"></canvas>
@@ -57,172 +73,298 @@ canvas{display:block;width:100%;flex:1;min-height:0}
       <span class="lbl" style="left:3%">45</span><span class="lbl" style="left:22.2%">25</span><span class="lbl" style="left:50%">0</span>
       <span class="lbl" style="left:77.8%">25</span><span class="lbl" style="left:97%">45</span>
     </div>
-    <button type="button" class="reset" id="reset">Poner a 0°</button>
+    <div class="btns"><button type="button" class="reset" id="reset">Poner a 0°</button><button type="button" class="logb" id="logb">Registro</button></div>
   </div>
 </div>
-<div class="overlay" id="ov"><b>Toca para empezar</b><span id="ovTxt">Con el coche recto y el teléfono ya colocado. Si marca algún grado estando recto, toca «Poner a 0°».</span><button type="button" class="install" id="install" hidden>Instalar como app</button></div>
+<div class="overlay" id="ov"><b>Toca para empezar</b><span id="ovTxt">Coloca el teléfono en el soporte. La app se pone a 0° sola cada vez que paras, y solo pita si arrancas marcha atrás.</span><button type="button" class="install" id="install" hidden>Instalar como app</button></div>
 <div class="status" id="status" hidden></div>
 <div class="msg" id="msg"></div>
+<div class="sheet" id="sheet" hidden>
+  <h2>Registro</h2>
+  <div class="vib" id="vibtxt"></div>
+  <pre id="logtxt"></pre>
+  <div class="row"><button type="button" class="pri" id="share">Compartir registro</button><button type="button" id="paste">Pegar ajustes</button><button type="button" id="clear">Borrar registro</button><button type="button" id="close">Cerrar</button></div>
+</div>
 
+<script>
+/* Ángulo de Maniobra · cerebro común (el mismo código en el teléfono y en el simulador).
+   Sin DOM: recibe los datos de los sensores con su hora (ms) y avisa con callbacks. */
+(function(root){
+'use strict';
+const DEF={
+  kmhDrive:12,   // por encima de esto durante driveMs = circulando (silencio)
+  driveMs:3000,
+  stopMs:2000,   // parado este tiempo = listo para aparcar (ángulo a 0)
+  stopKmh:2,     // por debajo = parado (GPS)
+  parkKmh:2.5,   // (lógica clásica) por encima, tras parar = maniobra
+  parkDeg:3,     // (lógica clásica) giro que inicia la maniobra
+  quietAcc:0.25, // (lógica clásica) sin GPS: vibración por debajo = parado (m/s²)
+  gpsMs:5000,    // sin datos de GPS en este tiempo = sin GPS
+  hyst:3,        // grados que hay que bajar para volver a armar un aviso
+  lv1:25, lv2:45,
+  soloAtras:1,   // 1 = lógica nueva: solo avisa si el coche arranca marcha atrás
+  restAcc:0.13,  // umbral mínimo de vibración (m/s²) para «quieto con el motor en marcha»
+  restK:2.4,     // el umbral se adapta: veces la vibración más baja medida (ralentí)
+  restMs:300,    // tiempo quieto para considerarlo parado de verdad
+  revV:0.2,      // m/s estimados para decidir hacia dónde arranca
+  fwdExitMs:6000 // en maniobra: avanzar sin parar este tiempo = se acabó la maniobra
+};
+function create(opts){
+  const P=Object.assign({},DEF,opts||{});
+  const cb={alert(){},mode(){},log(){}};
+  let source=null,axis=null,refYaw=null,lastYaw=null,unwrapped=0,angle=0;
+  let gx=0,gy=0,gz=9.8,lastGT=0,gyroAngle=0,startT=0;
+  let lastDop=-1e12,spd2=0,fixes=[],derived=false,mode='always',speed=null,lastFix=-1e12,prevFix=null,stopSince=0,fastSince=0,accVar=0,lastAccT=-1e12;
+  let floor=0.059,thr=0.13,R=null,accFast=0,quietMs=0,atRest=false,restYaw=null,restT=0,vEst=0,bias=0,lastMT=null,fromRest=false;
+  let lastDir=0,zRest=0,evt=null,fwdSince=0,fsign=1,corr=0,accSum=0,accN=0,prevSpd=null,vibRest=0,vibMove=0;
+  const armed={1:true,2:true};
+  const log=(t,m)=>cb.log(t,m);
+  const gpsOk=t=>t-lastFix<P.gpsMs&&speed!=null;
+
+  function setMode(m,t,why){ if(mode===m)return; const o=mode; mode=m; if(m==='park'){armed[1]=armed[2]=true;fwdSince=0;fastSince=0}
+    log(t,o+' → '+m+(why?' ('+why+')':'')); cb.mode(m,t,o) }
+  function checkAlerts(t){
+    if(mode!=='park'&&mode!=='always')return;
+    if(mode==='park'&&P.soloAtras&&lastDir>0)return; // en la maniobra, solo pita yendo marcha atrás
+    const v=Math.abs(angle);
+    [[1,P.lv1],[2,P.lv2]].forEach(([k,l])=>{ if(armed[k]&&v>=l){armed[k]=false;log(t,'PITIDO '+l+'° (ángulo '+v.toFixed(1)+'°)');cb.alert(l,t,angle)} else if(!armed[k]&&v<l-P.hyst)armed[k]=true });
+  }
+  function setAngle(a,t){angle=a;checkAlerts(t)}
+  function zero(t,why){axis=null;lastYaw=null;refYaw=null;unwrapped=0;gyroAngle=0;angle=0;restYaw=null;armed[1]=armed[2]=true;log(t,'ángulo a 0°'+(why?' ('+why+')':''))}
+  // pone el 0 en el rumbo que tenía el coche mientras estaba parado (aunque ya haya empezado a moverse)
+  function zeroAtRest(t){ if(restYaw!=null&&source==='orient'){refYaw=restYaw;armed[1]=armed[2]=true;angle=-(unwrapped-refYaw);log(t,'ángulo a 0° (rumbo de la parada)')} else zero(t,'parado') }
+
+  function yawFromEuler(a,b,g){
+    const d=Math.PI/180,cA=Math.cos(a*d),sA=Math.sin(a*d),cB=Math.cos(b*d),sB=Math.sin(b*d),cG=Math.cos(g*d),sG=Math.sin(g*d);
+    R=[[cA*cG-sA*sB*sG,-cB*sA,cA*sG+cG*sA*sB],[cG*sA+cA*sB*sG,cA*cB,sA*sG-cA*cG*sB],[-cB*sG,sB,cB*cG]];
+    const Y=[R[0][1],R[1][1],R[2][1]],Z=[R[0][2],R[1][2],R[2][2]];
+    if(!axis)axis=Math.abs(Y[2])<Math.abs(Z[2])?'Y':'Z';
+    const v=axis==='Y'?Y:Z;
+    if(Math.hypot(v[0],v[1])<0.2)return null;
+    return Math.atan2(v[1],v[0])/d;
+  }
+  function orient(a,b,g,t){
+    if(a==null)return;
+    const y=yawFromEuler(a,b||0,g||0); if(y==null)return;
+    if(source!=='orient'){ if(source==='gyro')return; source='orient' }
+    if(lastYaw!=null){let d=y-lastYaw;if(d>180)d-=360;if(d<-180)d+=360;unwrapped+=d}
+    lastYaw=y; if(refYaw==null)refYaw=unwrapped;
+    if(atRest)restYaw=unwrapped;
+    setAngle(-(unwrapped-refYaw),t);
+  }
+  // eje delante/detrás en horizontal: pantalla hacia el conductor → −Z ; teléfono tumbado → +Y
+  function fwd(){ if(!R)return null;
+    const Z=[R[0][2],R[1][2],R[2][2]],Y=[R[0][1],R[1][1],R[2][1]];
+    const v=Math.abs(Z[2])<0.7?[-Z[0],-Z[1]]:[Y[0],Y[1]],n=Math.hypot(v[0],v[1]);return n<0.2?null:[v[0]/n,v[1]/n] }
+  function motion(e,t){
+    const a=e.acceleration;let m,lin=null;
+    if(a&&a.x!=null){m=Math.hypot(a.x,a.y,a.z);lin=a}
+    else{const g=e.accelerationIncludingGravity;if(!g||g.x==null)return;m=Math.abs(Math.hypot(g.x,g.y,g.z)-9.81)}
+    accVar+=(m*m-accVar)*0.05;lastAccT=t;
+    const dt=lastMT==null?0:Math.min((t-lastMT)/1000,0.1);lastMT=t;
+    if(dt>0){
+      accFast+=(m*m-accFast)*Math.min(1,dt*15);
+      const rms=Math.sqrt(accFast),gpsMoving=t-lastFix<1500&&!derived&&speed>4&&spd2>4; // dos lecturas seguidas en marcha
+      const gpsStill=gpsOk(t)&&!derived&&speed<1;
+      floor=rms<floor?floor+(rms-floor)*0.05:floor*(1+(gpsStill?0.15:0.005)*dt); // sube rápido solo si el GPS confirma que está parado
+      thr=Math.min(0.6,Math.max(P.restAcc,floor*P.restK));
+      if(rms<thr&&!gpsMoving)quietMs+=dt*1000;else quietMs=0;
+      const wasRest=atRest;atRest=quietMs>=P.restMs;
+      if(atRest){vibRest+=(rms-vibRest)*0.01; if(!wasRest){restT=t;log(t,'quieto (vibración '+rms.toFixed(2)+')')}}
+      else if(gpsMoving)vibMove+=(rms-vibMove)*0.01;
+      const f=fwd();
+      if(lin&&f&&R){
+        const wx=R[0][0]*lin.x+R[0][1]*lin.y+R[0][2]*lin.z,wy=R[1][0]*lin.x+R[1][1]*lin.y+R[1][2]*lin.z;
+        const af=(wx*f[0]+wy*f[1])*fsign;accSum+=af;accN++;
+        if(atRest){bias+=(af-bias)*0.05;vEst=0;fromRest=true}
+        else{vEst=(vEst+(af-bias)*dt)*Math.exp(-dt/3);
+          if(fromRest&&Math.abs(vEst)>P.revV){fromRest=false;evt={dir:vEst>0?1:-1,t};lastDir=evt.dir;log(t,'arranca '+(evt.dir>0?'hacia delante':'marcha atrás'))}}
+      }
+    }
+    // giroscopio de reserva si no llega la orientación
+    const r=e.rotationRate,ag=e.accelerationIncludingGravity;
+    if(!r||r.alpha==null||source==='orient')return;
+    if(!source){if(t-startT<700)return;source='gyro'}
+    const gdt=lastGT?Math.min((t-lastGT)/1000,0.1):0;lastGT=t;
+    if(ag&&ag.x!=null){gx+=(ag.x-gx)*.08;gy+=(ag.y-gy)*.08;gz+=(ag.z-gz)*.08}
+    const n=Math.hypot(gx,gy,gz)||1;let w=(r.beta*gx+r.gamma*gy+r.alpha*gz)/n;
+    if(Math.abs(w)<0.4)w=0;gyroAngle-=w*gdt;setAngle(gyroAngle,t);
+  }
+  function distM(a,b){const R=6371000,d=Math.PI/180,dl=(b.latitude-a.latitude)*d,dn=(b.longitude-a.longitude)*d;
+    const h=Math.sin(dl/2)**2+Math.cos(a.latitude*d)*Math.cos(b.latitude*d)*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
+  function fix(p,t){
+    let s=p.coords.speed;derived=false;if(s!=null&&!isNaN(s))lastDop=t;
+    // sin velocidad del GPS: se calcula con posiciones separadas al menos 4 s (con menos, el error de posición la dispara)
+    fixes.push(p);while(fixes.length>2&&p.timestamp-fixes[1].timestamp>=4000)fixes.shift();
+    if((s==null||isNaN(s))&&!P.soloAtras&&prevFix){const d=distM(prevFix.coords,p.coords),dt=(p.timestamp-prevFix.timestamp)/1000;if(dt>0)s=d/dt}
+    else if((s==null||isNaN(s))&&t-lastDop<10000){accSum=0;accN=0;return} // hay velocidad del GPS normalmente: se ignora esta lectura
+    else if(s==null||isNaN(s)){const q=fixes[0],dt=(p.timestamp-q.timestamp)/1000;s=dt>=4?distM(q.coords,p.coords)/dt:null;derived=true}
+    prevFix=p;lastFix=t;
+    if(s!=null&&!isNaN(s)){
+      // comprueba con el GPS que el eje delante/detrás no está al revés
+      if(prevSpd!=null&&accN>10&&(mode==='drive'||mode==='creep')){const ga=s-prevSpd,am=accSum/accN;if(Math.abs(ga)>0.5&&Math.abs(am)>0.2)corr=corr*0.9+Math.sign(ga)*Math.sign(am);
+        if(corr<-3){fsign=-fsign;corr=0;log(t,'eje delante/detrás corregido')}}
+      prevSpd=s;spd2=derived?0:(speed||0);speed=s*3.6}
+    else speed=null;
+    accSum=0;accN=0;
+  }
+  function gpsDenied(t){ if(!P.soloAtras){mode='always';log(t,'sin permiso de ubicación: siempre activo');cb.mode('always',t)} }
+  function start(t,hasGeo){startT=t;mode=hasGeo||P.soloAtras?'stop':'always';log(t,'inicio · modo '+mode)}
+
+  function tickClassic(t){
+    const ok=gpsOk(t),quiet=Math.sqrt(accVar)<P.quietAcc,stopped=ok?speed<P.stopKmh:quiet;
+    stopSince=stopped?(stopSince||t):0;
+    fastSince=(ok&&speed>P.kmhDrive)?(fastSince||t):0;
+    if(mode==='drive'&&stopSince&&t-stopSince>P.stopMs){setMode('stop',t,'parado');zero(t,'parado')}
+    else if(mode==='stop'&&(Math.abs(angle)>P.parkDeg||(ok&&speed>P.parkKmh)))setMode('park',t,'movimiento');
+    if(fastSince&&t-fastSince>P.driveMs)setMode('drive',t,'circulando');
+  }
+  function tick(t){
+    if(mode==='always')return;
+    const hasAcc=t-lastAccT<2000&&R;
+    if(!P.soloAtras||!hasAcc)return tickClassic(t);
+    const fresh=t-lastFix<2000&&speed!=null;
+    fastSince=(fresh&&speed>P.kmhDrive)?(fastSince||t):0;
+    stopSince=atRest?restT:0;
+    if((mode==='drive'||mode==='creep')&&stopSince&&t-stopSince>=P.stopMs){setMode('stop',t,'parado');zeroAtRest(t);zRest=restT;
+      if(evt&&evt.t<restT)evt=null}
+    if(mode==='stop'&&atRest&&restT!==zRest){zRest=restT;zeroAtRest(t)}
+    if(mode==='stop'&&evt&&evt.t>=restT-50){
+      if(evt.dir<0)setMode('park',t,'marcha atrás');else setMode('creep',t,'hacia delante');evt=null}
+    // si arranca marcha atrás antes de cumplirse stopMs, la parada vale igual
+    if((mode==='drive'||mode==='creep')&&evt&&evt.dir<0&&restT&&evt.t>restT){
+      setMode('stop',t,'parada corta');zeroAtRest(t);zRest=restT;setMode('park',t,'marcha atrás');evt=null}
+    if(mode==='park'){ if(atRest)fwdSince=0; else if(evt&&evt.dir>0&&!fwdSince)fwdSince=evt.t;
+      if(fwdSince&&t-fwdSince>P.fwdExitMs){setMode('creep',t,'sale hacia delante');fwdSince=0}
+      if(evt&&evt.dir<0)fwdSince=0; }
+    if(fastSince&&t-fastSince>P.driveMs)setMode('drive',t,'circulando');
+  }
+  return {P,cb,orient,motion,fix,tick,start,gpsDenied,
+    zero(t){zero(t,'manual');if(mode==='drive'||mode==='creep'||mode==='stop')setMode('park',t,'manual')},
+    get angle(){return angle},get mode(){return mode},get source(){return source},get atRest(){return atRest},
+    get vib(){return {rest:vibRest,move:vibMove,now:Math.sqrt(accFast),thr,floor}},
+    kmh(t){return gpsOk(t)?speed:null}};
+}
+root.AnguloCore={create,DEF};
+if(typeof module!=='undefined')module.exports=root.AnguloCore;
+})(typeof window!=='undefined'?window:globalThis);
+
+</script>
 <script>
 (()=>{
 const $=id=>document.getElementById(id);
 const cv=$('cv'),ctx=cv.getContext('2d');
-let angle=0, shown=0, started=false, source=null;
-const armed={25:true,45:true};
+const toast=(t,ms=2200)=>{const m=$('msg');m.textContent=t;m.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>m.classList.remove('on'),ms)};
+
+/* ---------- ajustes (los de fábrica salen del simulador; se pueden pegar otros) ---------- */
+let user={};try{user=JSON.parse(localStorage.getItem('angAjustes')||'{}')}catch(e){}
+const core=AnguloCore.create(user);
+const P=core.P;
+
+/* ---------- registro (se guarda en el teléfono para revisarlo después de probar) ---------- */
+let LOG=[];try{LOG=JSON.parse(localStorage.getItem('angLog')||'[]')}catch(e){}
+const T0=Date.now()-performance.now();
+const stamp=t=>{const d=new Date(T0+t);return d.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit',second:'2-digit'})};
+let saveT=0;
+function addLog(t,m){LOG.push(stamp(t)+'  '+m);if(LOG.length>800)LOG.splice(0,LOG.length-800);
+  clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem('angLog',JSON.stringify(LOG))}catch(e){}},800);
+  if(!$('sheet').hidden)renderLog()}
+core.cb.log=(t,m)=>{const v=core.vib,k=core.kmh(t);addLog(t,m+(/→/.test(m)?'  [vib '+v.now.toFixed(2)+' / umbral '+v.thr.toFixed(2)+(k==null?' · sin GPS':' · '+k.toFixed(1)+' km/h')+']':''))};
+
+/* ---------- sonido ---------- */
 let audio=null;
-
-function toast(t,ms=2200){const m=$('msg');m.textContent=t;m.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>m.classList.remove('on'),ms)}
-
-/* ---------- sound ---------- */
-function tone(f,t0,dur,vol){
-  const o=audio.createOscillator(),g=audio.createGain();o.type='sine';o.frequency.value=f;
+function tone(f,t0,dur,vol){const o=audio.createOscillator(),g=audio.createGain();o.type='sine';o.frequency.value=f;
   g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(vol,t0+0.015);g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
-  o.connect(g).connect(audio.destination);o.start(t0);o.stop(t0+dur+0.05);
-}
-function chime(l){ if(!audio)return; if(audio.state==='suspended')audio.resume(); const t=audio.currentTime+0.02;
-  if(l===25){tone(784,t,0.45,0.35);tone(1046.5,t+0.15,0.6,0.3)} else {tone(1046.5,t,0.3,0.4);tone(1318.5,t+0.12,0.3,0.35);tone(1568,t+0.24,0.7,0.35)} }
-function alertAt(l){ chime(l); if(navigator.vibrate)navigator.vibrate(l===25?120:[120,80,120]) }
-function checkAlerts(a){ if(mode==='drive')return; const v=Math.abs(a); [25,45].forEach(l=>{ if(armed[l]&&v>=l){armed[l]=false;alertAt(l)} else if(!armed[l]&&v<l-3)armed[l]=true }) }
+  o.connect(g).connect(audio.destination);o.start(t0);o.stop(t0+dur+0.05)}
+function chime(l){if(!audio)return;if(audio.state==='suspended')audio.resume();const t=audio.currentTime+0.02;
+  if(l===P.lv1){tone(784,t,0.45,0.35);tone(1046.5,t+0.15,0.6,0.3)}else{tone(1046.5,t,0.3,0.4);tone(1318.5,t+0.12,0.3,0.35);tone(1568,t+0.24,0.7,0.35)}}
+core.cb.alert=l=>{chime(l);if(navigator.vibrate)navigator.vibrate(l===P.lv1?120:[120,80,120])};
+core.cb.mode=m=>{$('app').classList.toggle('idle',m==='drive'||m==='creep')};
 
-/* ---------- sensors ---------- */
-// A) deviceorientation: fused, drift-free. Heading of a horizontal phone axis, whatever the mount.
-let refYaw=null,lastYaw=null,unwrapped=0,axis=null;
-function yawFromEuler(a,b,g){
-  const d=Math.PI/180,cA=Math.cos(a*d),sA=Math.sin(a*d),cB=Math.cos(b*d),sB=Math.sin(b*d),cG=Math.cos(g*d),sG=Math.sin(g*d);
-  const Y=[-cB*sA, cA*cB, sB];                       // phone's long axis in world coords
-  const Z=[cG*sA*sB+cA*sG, sA*sG-cA*cG*sB, cB*cG];   // axis out of the screen
-  if(!axis) axis=Math.abs(Y[2])<Math.abs(Z[2])?'Y':'Z'; // pick the more horizontal one once
-  const v=axis==='Y'?Y:Z;
-  if(Math.hypot(v[0],v[1])<0.2) return null;
-  return Math.atan2(v[1],v[0])/d;                    // counter-clockwise from east
-}
-function onOrient(e){
-  if(e.alpha==null)return;
-  const y=yawFromEuler(e.alpha,e.beta||0,e.gamma||0); if(y==null)return;
-  if(source!=='orient'){ if(source==='gyro')return; source='orient' }
-  if(lastYaw!=null){let d=y-lastYaw; if(d>180)d-=360; if(d<-180)d+=360; unwrapped+=d}
-  lastYaw=y;
-  if(refYaw==null)refYaw=unwrapped;
-  setAngle(-(unwrapped-refYaw));                     // clockwise (right) = positive
-}
-// B) devicemotion gyro, integrated around gravity. Used only if A never arrives.
-let gx=0,gy=0,gz=9.8,lastT=0,gyroAngle=0;
-function onMotion(e){
-  onAccel(e);
-  const r=e.rotationRate,a=e.accelerationIncludingGravity;
-  if(!r||r.alpha==null)return;
-  if(source==='orient')return;
-  if(!source){ if(performance.now()-startT<700)return; source='gyro' } // give orientation a head start
-  const now=performance.now(),dt=lastT?Math.min((now-lastT)/1000,0.1):0;lastT=now;
-  if(a&&a.x!=null){gx+=(a.x-gx)*.08;gy+=(a.y-gy)*.08;gz+=(a.z-gz)*.08}
-  const n=Math.hypot(gx,gy,gz)||1; let w=(r.beta*gx+r.gamma*gy+r.alpha*gz)/n;
-  if(Math.abs(w)<0.4)w=0;
-  gyroAngle-=w*dt; setAngle(gyroAngle);
-}
-function setAngle(a){angle=a;checkAlerts(a)}
-// Reset: forget the phone's current tilt and take the present position as straight.
-function zero(quiet){axis=null;lastYaw=null;refYaw=null;unwrapped=0;gyroAngle=0;angle=0;shown=0;armed[25]=armed[45]=true;if(!quiet)toast('Ángulo a 0°')}
+/* ---------- sensores ---------- */
+let started=false;
+const onOrient=e=>core.orient(e.alpha,e.beta,e.gamma,performance.now());
+const onMotion=e=>core.motion(e,performance.now());
+setInterval(()=>{if(started){core.tick(performance.now());status()}},250);
 
-/* ---------- parking detection ---------- */
-// drive: moving faster than KMH_DRIVE, silent. stop: stopped >2 s, angle held at 0. park: moving again after a stop, alerts on.
-// always: no GPS permission, behaves like before (always active).
-const KMH_DRIVE=12, STOP_MS=2000, DRIVE_MS=3000;
-let mode='always', speed=null, lastFix=0, prevFix=null, stopSince=0, fastSince=0, accVar=0;
-function onAccel(e){
-  const a=e.acceleration; let m;
-  if(a&&a.x!=null) m=Math.hypot(a.x,a.y,a.z);
-  else { const g=e.accelerationIncludingGravity; if(!g||g.x==null)return; m=Math.abs(Math.hypot(g.x,g.y,g.z)-9.81) }
-  accVar+=(m*m-accVar)*0.05;
-}
-function onFix(p){
-  const now=Date.now(); let s=p.coords.speed;
-  if((s==null||isNaN(s))&&prevFix){ const d=distM(prevFix.coords,p.coords), dt=(p.timestamp-prevFix.timestamp)/1000; if(dt>0)s=d/dt }
-  prevFix=p; lastFix=now; if(s!=null&&!isNaN(s))speed=s*3.6;
-}
-function distM(a,b){const R=6371000,d=Math.PI/180,dl=(b.latitude-a.latitude)*d,dn=(b.longitude-a.longitude)*d;
-  const h=Math.sin(dl/2)**2+Math.cos(a.latitude*d)*Math.cos(b.latitude*d)*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
-function setMode(m){ if(mode===m)return; mode=m; $('app').classList.toggle('idle',m==='drive');
-  if(m==='park')armed[25]=armed[45]=true; }
-function tick(){
-  if(mode!=='always'){
-    const now=Date.now(), gpsOk=now-lastFix<5000&&speed!=null, quiet=Math.sqrt(accVar)<0.25;
-    const stopped=gpsOk?speed<2:quiet;      // no GPS (garage): use the accelerometer
-    stopSince=stopped?(stopSince||now):0;
-    fastSince=(gpsOk&&speed>KMH_DRIVE)?(fastSince||now):0;
-    // Zero only once: when the car stops after driving. Stops during the manoeuvre keep the angle.
-    if(mode==='drive'&&stopSince&&now-stopSince>STOP_MS){ setMode('stop'); zero(true) }
-    else if(mode==='stop'&&(Math.abs(angle)>3||(gpsOk&&speed>2.5))) setMode('park');
-    if(fastSince&&now-fastSince>DRIVE_MS) setMode('drive');
-  }
-  const st=$('status'), kmh=speed==null||Date.now()-lastFix>5000?'sin GPS':Math.round(speed)+' km/h';
-  st.className='status '+mode;
-  st.textContent=mode==='always'?'Siempre activo':mode==='drive'?'En marcha · '+kmh:mode==='stop'?'Listo para aparcar':'Aparcando · '+kmh;
-}
-setInterval(tick,250);
-
-let startT=0;
 async function start(){
   try{audio=new (window.AudioContext||window.webkitAudioContext)();tone(440,audio.currentTime,0.01,0.0002)}catch(e){}
   let denied=false;
-  try{ if(window.DeviceOrientationEvent&&typeof DeviceOrientationEvent.requestPermission==='function'){
-      if(await DeviceOrientationEvent.requestPermission()!=='granted')denied=true }
-    if(window.DeviceMotionEvent&&typeof DeviceMotionEvent.requestPermission==='function'){
-      try{await DeviceMotionEvent.requestPermission()}catch(e){} }
+  try{if(window.DeviceOrientationEvent&&typeof DeviceOrientationEvent.requestPermission==='function'){
+      if(await DeviceOrientationEvent.requestPermission()!=='granted')denied=true}
+    if(window.DeviceMotionEvent&&typeof DeviceMotionEvent.requestPermission==='function'){try{await DeviceMotionEvent.requestPermission()}catch(e){}}
   }catch(e){denied=true}
-  startT=performance.now();
+  const t=performance.now();
+  addLog(t,'—— nueva sesión ——');
+  core.start(t,!!navigator.geolocation);
   window.addEventListener('deviceorientation',onOrient);
   window.addEventListener('devicemotion',onMotion);
   try{if('wakeLock' in navigator)await navigator.wakeLock.request('screen')}catch(e){}
-  if(navigator.geolocation){ mode='stop';
-    navigator.geolocation.watchPosition(onFix,err=>{ if(err.code===1){ mode='always'; $('app').classList.remove('idle'); toast('Sin permiso de ubicación: siempre activo',3500) } },
-      {enableHighAccuracy:true,maximumAge:0,timeout:15000}) }
-  started=true; $('ov').hidden=true; $('status').hidden=false;
+  if(navigator.geolocation){
+    navigator.geolocation.watchPosition(p=>core.fix(p,performance.now()),err=>{const tt=performance.now();addLog(tt,'GPS: '+(err.code===1?'sin permiso':'error '+err.code));if(err.code===1){core.gpsDenied(tt);toast('Sin permiso de ubicación',3500)}},
+      {enableHighAccuracy:true,maximumAge:0,timeout:15000})}
+  started=true;$('ov').hidden=true;$('status').hidden=false;
   setTimeout(()=>{
-    if(source){zero(true);return toast('Listo · 0°')}   // sensors settle in the first second, so zero again
-    $('ov').hidden=false; started=false;
+    if(core.source){addLog(performance.now(),'sensores: '+(core.source==='orient'?'orientación':'giroscopio'));return toast('Listo · 0°')}
+    $('ov').hidden=false;started=false;
     $('ov').firstChild.textContent='Sin sensores';
     $('ovTxt').textContent=!window.isSecureContext?'Chrome bloquea los sensores en archivos abiertos desde el teléfono. Abre la app desde una dirección https.'
       :denied?'Has denegado el acceso al movimiento. Recarga la página y acepta el permiso.'
       :'Este navegador no envía datos del giroscopio. Prueba con Chrome (Android) o Safari (iPhone).';
   },1500);
 }
-$('ov').addEventListener('click',()=>{ if(!started)start() });
-// Install prompt (Chrome): shown only when the browser says the app can be installed
+$('ov').addEventListener('click',()=>{if(!started)start()});
+
+function status(){
+  const t=performance.now(),m=core.mode,k=core.kmh(t),kmh=k==null?'sin GPS':Math.round(k)+' km/h',st=$('status');
+  st.className='status '+m;
+  st.textContent=m==='always'?'Siempre activo':m==='drive'?'En marcha · '+kmh:m==='creep'?'Avanzando · sin avisos':m==='stop'?'Listo para aparcar':'Aparcando · '+kmh;
+}
+
+/* ---------- botones ---------- */
+$('reset').addEventListener('click',()=>{if(audio&&audio.state==='suspended')audio.resume();if(started){core.zero(performance.now());toast('Ángulo a 0°')}else start()});
+function renderLog(){const v=core.vib;$('vibtxt').textContent='Vibración ahora '+v.now.toFixed(2)+' · parado ≈ '+v.rest.toFixed(2)+' · en marcha ≈ '+v.move.toFixed(2)+' · umbral '+v.thr.toFixed(2)+' m/s²';
+  const pre=$('logtxt');pre.textContent=LOG.slice(-300).join('\n')||'Todavía no hay nada. Haz una prueba en el coche y vuelve aquí.';pre.scrollTop=pre.scrollHeight}
+$('logb').addEventListener('click',()=>{renderLog();$('sheet').hidden=false});
+$('close').addEventListener('click',()=>{$('sheet').hidden=true});
+$('clear').addEventListener('click',()=>{if(confirm('¿Borrar el registro?')){LOG=[];try{localStorage.removeItem('angLog')}catch(e){}renderLog()}});
+$('share').addEventListener('click',async()=>{const v=core.vib,txt='Ángulo de Maniobra · registro\nAjustes: '+JSON.stringify(user)+'\nVibración parado '+v.rest.toFixed(2)+' / en marcha '+v.move.toFixed(2)+'\n\n'+LOG.join('\n');
+  try{if(navigator.share){await navigator.share({title:'Registro Ángulo de Maniobra',text:txt});return}}catch(e){if(e.name==='AbortError')return}
+  try{await navigator.clipboard.writeText(txt);toast('Registro copiado')}catch(e){toast('No se pudo copiar')}});
+$('paste').addEventListener('click',()=>{const s=prompt('Pega aquí los ajustes copiados del simulador (vacío = valores de fábrica):',JSON.stringify(user));if(s==null)return;
+  try{const o=s.trim()?JSON.parse(s):{};const a=o.app||o;for(const k in a)if(!(k in AnguloCore.DEF))delete a[k];localStorage.setItem('angAjustes',JSON.stringify(a));toast('Ajustes guardados');setTimeout(()=>location.reload(),700)}catch(e){toast('Esos ajustes no son válidos')}});
+
+/* ---------- instalar ---------- */
 let deferred=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;$('install').hidden=false});
-$('install').addEventListener('click',async e=>{e.stopPropagation(); if(!deferred)return; deferred.prompt();
-  try{const r=await deferred.userChoice; if(r.outcome==='accepted')$('install').hidden=true}catch(_){} deferred=null});
+$('install').addEventListener('click',async e=>{e.stopPropagation();if(!deferred)return;deferred.prompt();
+  try{const r=await deferred.userChoice;if(r.outcome==='accepted')$('install').hidden=true}catch(_){}deferred=null});
 window.addEventListener('appinstalled',()=>{$('install').hidden=true;toast('App instalada')});
 if('serviceWorker' in navigator&&location.protocol==='https:'&&!/claude/.test(location.hostname)){navigator.serviceWorker.register('sw.js').catch(()=>{})}
-$('reset').addEventListener('click',()=>{ if(audio&&audio.state==='suspended')audio.resume(); if(started){ zero(); if(mode==='drive')setMode('park') } else start() });
-document.addEventListener('visibilitychange',async()=>{ if(document.visibilityState==='visible'&&started){
-  try{audio&&audio.resume()}catch(e){} try{await navigator.wakeLock.request('screen')}catch(e){} }});
+document.addEventListener('visibilitychange',async()=>{if(document.visibilityState==='visible'&&started){
+  try{audio&&audio.resume()}catch(e){}try{await navigator.wakeLock.request('screen')}catch(e){}}});
 
-/* ---------- drawing ---------- */
-let W=0,H=0,dpr=1;
+/* ---------- dibujo ---------- */
+let W=0,H=0,dpr=1,shown=0;
 function resize(){dpr=Math.min(window.devicePixelRatio||1,2);const r=cv.getBoundingClientRect();W=r.width;H=r.height;cv.width=W*dpr;cv.height=H*dpr}
 new ResizeObserver(resize).observe(cv);resize();
 const C={};['--road','--line','--car','--glass','--ok','--amber','--stop','--muted'].forEach(k=>C[k]=getComputedStyle(document.documentElement).getPropertyValue(k).trim());
-const colorFor=a=>(a=Math.abs(a))>=45?C['--stop']:a>=25?C['--amber']:C['--ok'];
+const colorFor=a=>(a=Math.abs(a))>=P.lv2?C['--stop']:a>=P.lv1?C['--amber']:C['--ok'];
 function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
-
 function draw(){
-  const target=mode==='drive'?0:angle;
+  const quiet=core.mode==='drive'||core.mode==='creep',target=quiet?0:core.angle;
   shown+=(target-shown)*0.35;
   ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle=C['--road'];ctx.fillRect(0,0,W,H);
-  const s=Math.min(H/7,W/4), cx=W/2, cy=H/2, col=colorFor(shown);
-  // reference line (where the car pointed at 0°) and 25°/45° guides
+  const s=Math.min(H/7,W/4),cx=W/2,cy=H/2,col=colorFor(shown);
   ctx.lineWidth=2;ctx.setLineDash([10,10]);
-  [[0,C['--muted']],[25,C['--amber']],[-25,C['--amber']],[45,C['--stop']],[-45,C['--stop']]].forEach(([a,c])=>{
+  [[0,C['--muted']],[P.lv1,C['--amber']],[-P.lv1,C['--amber']],[P.lv2,C['--stop']],[-P.lv2,C['--stop']]].forEach(([a,c])=>{
     ctx.save();ctx.translate(cx,cy);ctx.rotate(a*Math.PI/180);ctx.strokeStyle=c;ctx.globalAlpha=a?0.35:0.6;
     ctx.beginPath();ctx.moveTo(0,-H);ctx.lineTo(0,H);ctx.stroke();ctx.restore()});
   ctx.setLineDash([]);ctx.globalAlpha=1;
-  // car
-  const L=4.4*s/2.2, Wd=1.8*s/2.2, ww=0.24*L/4.4*2.2, wl=0.7*L/4.4*2.2;
+  const L=4.4*s/2.2,Wd=1.8*s/2.2,ww=0.24*L/4.4*2.2,wl=0.7*L/4.4*2.2;
   ctx.save();ctx.translate(cx,cy);ctx.rotate(shown*Math.PI/180);
   ctx.fillStyle='#05080c';
-  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sy])=>{rr(sx*(Wd/2-ww*0.3)-ww/2, sy*(L/2-L*0.22)-wl/2, ww, wl, 3);ctx.fill()});
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sy])=>{rr(sx*(Wd/2-ww*0.3)-ww/2,sy*(L/2-L*0.22)-wl/2,ww,wl,3);ctx.fill()});
   ctx.shadowColor='rgba(0,0,0,.45)';ctx.shadowBlur=14;ctx.shadowOffsetY=4;
   ctx.fillStyle=C['--car'];rr(-Wd/2,-L/2,Wd,L,Wd*0.25);ctx.fill();ctx.shadowColor='transparent';
   ctx.fillStyle=C['--glass'];
@@ -232,8 +374,7 @@ function draw(){
   ctx.fillStyle='#d8443a';rr(-Wd*.42,L/2-L*.025-2,Wd*.22,L*.025,2);ctx.fill();rr(Wd*.2,L/2-L*.025-2,Wd*.22,L*.025,2);ctx.fill();
   ctx.fillStyle=col;rr(-Wd*.08,-L*.08,Wd*.16,L*.22,3);ctx.fill();
   ctx.restore();
-  // readout
-  const v=mode==='drive'?'–':Math.round(Math.abs(angle)), d=$('deg');
+  const v=quiet?'–':Math.round(Math.abs(core.angle)),d=$('deg');
   if(d.dataset.v!=v){d.dataset.v=v;d.innerHTML=v+'<small>°</small>'}
   d.style.color=colorFor(target);
   const a=Math.max(-45,Math.min(45,shown)),p=Math.abs(a)/45*50,f=$('fill');
