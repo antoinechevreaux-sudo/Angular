@@ -21,6 +21,7 @@ class MainActivity : Activity() {
     private lateinit var web: WebView
     private var geoOrigin: String? = null
     private var geoCallback: GeolocationPermissions.Callback? = null
+    private var micRequest: PermissionRequest? = null
     private val FULL = false
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -67,7 +68,18 @@ class MainActivity : Activity() {
                     requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), 7)
                 }
             }
-            override fun onPermissionRequest(request: PermissionRequest) { runOnUiThread { request.grant(request.resources) } }
+            // micrófono para el silbido: pide el permiso de Android y luego se lo da a la web
+            override fun onPermissionRequest(request: PermissionRequest) {
+                runOnUiThread {
+                    val wantsMic = request.resources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
+                    if (!wantsMic || checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                        request.grant(request.resources)
+                    } else {
+                        micRequest = request
+                        requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 8)
+                    }
+                }
+            }
         }
         WebView.setWebContentsDebuggingEnabled(true)
         if (savedInstanceState == null) web.loadUrl(pre + "index.html") else web.restoreState(savedInstanceState)
@@ -75,6 +87,10 @@ class MainActivity : Activity() {
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        if (requestCode == 8) {
+            val ok = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
+            micRequest?.let { if (ok) it.grant(it.resources) else it.deny() }; micRequest = null
+        }
         if (requestCode == 7) {
             val ok = grantResults.isNotEmpty() && grantResults.any { it == PackageManager.PERMISSION_GRANTED }
             geoCallback?.invoke(geoOrigin, ok, ok); geoCallback = null
