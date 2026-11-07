@@ -31,11 +31,12 @@ class AnguloService : Service(), SensorEventListener {
         @Volatile var hearing = 0L
         @Volatile var micOk = false
         @Volatile var sensorOk = false
+        @Volatile var vol = -1
         var instance: AnguloService? = null
         fun estadoJson(): String {
             val left = if (active) max(0L, (until - SystemClock.elapsedRealtime() + 999) / 1000) else 0
             val hear = SystemClock.elapsedRealtime() - hearing < 300
-            return """{"running":$running,"active":$active,"angle":${"%.2f".format(java.util.Locale.US, angle)},"left":$left,"hear":$hear,"mic":$micOk,"sensor":$sensorOk}"""
+            return """{"running":$running,"active":$active,"angle":${"%.2f".format(java.util.Locale.US, angle)},"left":$left,"hear":$hear,"mic":$micOk,"sensor":$sensorOk,"vol":$vol}"""
         }
     }
 
@@ -87,6 +88,7 @@ class AnguloService : Service(), SensorEventListener {
         sensorOk = s != null
         if (s != null) sm.registerListener(this, s, SensorManager.SENSOR_DELAY_GAME)
         startAudio()
+        beeper.ready()   // un «tin» al arrancar: si no se oye, el volumen multimedia está bajo
         tick()
         return START_STICKY
     }
@@ -135,6 +137,7 @@ class AnguloService : Service(), SensorEventListener {
     private fun tick() {
         if (!running) return
         if (active && SystemClock.elapsedRealtime() > until) deactivate()
+        vol = try { val am = getSystemService(AudioManager::class.java); am.getStreamVolume(AudioManager.STREAM_MUSIC) * 100 / max(1, am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)) } catch (_: Exception) { -1 }
         refreshNoti()
         main.postDelayed({ tick() }, 500)
     }
@@ -219,7 +222,8 @@ class AnguloService : Service(), SensorEventListener {
 class Beeper(ctx: Context) {
     private val sr = 44100
     private val am = ctx.getSystemService(AudioManager::class.java)
-    private val attrs = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()
+    // mismo canal que las indicaciones de Waze: sigue el volumen multimedia (el de «sonidos del sistema» suele estar a cero en Xiaomi)
+    private val attrs = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()
     private val focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK).setAudioAttributes(attrs).build()
     private val worker = HandlerThread("pitidos").apply { start() }
     private val h = Handler(worker.looper)
@@ -254,6 +258,8 @@ class Beeper(ctx: Context) {
             am.abandonAudioFocusRequest(focus)
         } catch (_: Exception) {}
     }
+    private val sReady = tones(doubleArrayOf(659.25, 0.0, 0.2, 0.45))
+    fun ready() = play(sReady)
     fun start() = play(sStart)
     fun end() = play(sEnd)
     fun alert(l: Int) = play(if (l == 25) s25 else s45)

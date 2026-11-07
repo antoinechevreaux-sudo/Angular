@@ -204,6 +204,7 @@ if(NATIVE){
     if(nat.active&&!active)$('app').classList.remove('idle');if(!nat.active&&active)$('app').classList.add('idle');
     active=nat.active;angle=nat.angle;
     $('status').classList.toggle('on',active);$('dot').classList.toggle('hear',!!nat.hear);
+    if(nat.vol===0&&!natStart.volWarn){natStart.volWarn=1;toast('El volumen multimedia está a cero: súbelo para oír los avisos',5000)}else if(nat.vol>0)natStart.volWarn=0;
     $('stTxt').textContent=!nat.running?'Iniciando…':active?'Midiendo · '+nat.left+' s':nat.mic?'Silba para empezar':'Sin micrófono · usa el botón'},100);
 }
 $('ov').addEventListener('click',()=>{if(!started)NATIVE?natStart():start()});
