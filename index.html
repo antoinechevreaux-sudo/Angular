@@ -76,7 +76,7 @@ canvas{display:block;width:100%;flex:1;min-height:0}
 /* Detector de silbido: busca un tono casi puro (sin armónicos) entre 600 y 3500 Hz que dure ~1 s
    y cambie de nota (una melodía). El motor, la voz y casi toda la música tienen armónicos o no son tonos. */
 function WhistleDetector(ctx,stream,o){
-  const P=Object.assign({lo:600,hi:3500,ratio:17,harm:11,sub:6,minDb:-80,winMs:1500,need:0.5,spread:1.10,run:600},o||{});
+  const P=Object.assign({lo:600,hi:3500,ratio:17,harm:11,sub:6,minDb:-80,winMs:1500,need:0.5,spread:1.10,run:900},o||{});
   const src=ctx.createMediaStreamSource(stream),an=ctx.createAnalyser();
   an.fftSize=4096;an.smoothingTimeConstant=0.15;src.connect(an);
   const N=an.frequencyBinCount,db=new Float32Array(N),hz=ctx.sampleRate/an.fftSize;
@@ -100,8 +100,8 @@ function WhistleDetector(ctx,stream,o){
     if(paused)return;
     const span=hist.length?t-hist[0].t:0,good=hist.filter(x=>x.ok);
     if(span<P.winMs*0.9||good.length<hist.length*P.need)return;
-    // continuo: un tramo de al menos P.run ms sin cortes (se perdona un fotograma suelto); un «ding» se apaga antes
-    let best=0,st=null,miss=0;for(const x of hist){if(x.ok){if(st==null)st=x.t;miss=0;best=Math.max(best,x.t-st)}else if(st!=null&&++miss>1){st=null;miss=0}}
+    // continuo: un tramo de al menos P.run ms sin cortes (se perdonan dos fotogramas sueltos); un «ding» se apaga antes
+    let best=0,st=null,miss=0;for(const x of hist){if(x.ok){if(st==null)st=x.t;miss=0;best=Math.max(best,x.t-st)}else if(st!=null&&++miss>2){st=null;miss=0}}
     if(best<P.run)return;
     // tiene que cambiar de nota: una alarma o un pitido del coche se quedan en la misma
     const fs=good.map(x=>x.f).sort((x,y)=>x-y),lo10=fs[Math.floor(fs.length*.1)],hi90=fs[Math.floor(fs.length*.9)];
@@ -138,7 +138,7 @@ function checkAlerts(a){if(!active)return;const v=Math.abs(a);
 function activate(why){zero();active=true;until=performance.now()+ACTIVE_MS;if(det)det.pause(true);
   $('app').classList.remove('idle');if(navigator.vibrate)navigator.vibrate(60);tick();window.__ang.triggers.push({t:performance.now(),why})}
 function deactivate(){active=false;$('app').classList.add('idle');quietUntil=performance.now()+1500}
-setInterval(()=>{if(!started)return;const t=performance.now();
+setInterval(()=>{if(!started||window.AndroidApp&&AndroidApp.estado)return;const t=performance.now();
   if(active&&t>until)deactivate();
   if(!active&&det&&t>quietUntil)det.pause(false);
   const st=$('status');st.classList.toggle('on',active);
@@ -192,8 +192,24 @@ async function start(){
       :'Este teléfono no envía datos del giroscopio.';
   },1500);
 }
-$('ov').addEventListener('click',()=>{if(!started)start()});
-$('reset').addEventListener('click',()=>{if(audio&&audio.state==='suspended')audio.resume();if(started){activate('botón');toast('0° · midiendo un minuto')}else start()});
+/* ---------- dentro del APK: lo hace todo el servicio de Android (sigue con Waze delante o la pantalla apagada) ---------- */
+const NATIVE=!!(window.AndroidApp&&AndroidApp.estado);
+let nat={};
+function natStart(){AndroidApp.iniciar();started=true;$('ov').hidden=true;$('status').hidden=false}
+if(NATIVE){
+  $('ovTxt').textContent='Coloca el teléfono en el soporte y toca aquí. Funciona aunque uses Waze o apagues la pantalla: silba un trozo de una canción y medirá durante un minuto.';
+  try{nat=JSON.parse(AndroidApp.estado())}catch(e){}
+  if(nat.running)natStart();
+  setInterval(()=>{if(!started)return;try{nat=JSON.parse(AndroidApp.estado())}catch(e){return}
+    if(nat.active&&!active)$('app').classList.remove('idle');if(!nat.active&&active)$('app').classList.add('idle');
+    active=nat.active;angle=nat.angle;
+    $('status').classList.toggle('on',active);$('dot').classList.toggle('hear',!!nat.hear);
+    $('stTxt').textContent=!nat.running?'Iniciando…':active?'Midiendo · '+nat.left+' s':nat.mic?'Silba para empezar':'Sin micrófono · usa el botón'},100);
+}
+$('ov').addEventListener('click',()=>{if(!started)NATIVE?natStart():start()});
+$('reset').addEventListener('click',()=>{
+  if(NATIVE){if(started){AndroidApp.reset();toast('0° · midiendo un minuto')}else natStart();return}
+  if(audio&&audio.state==='suspended')audio.resume();if(started){activate('botón');toast('0° · midiendo un minuto')}else start()});
 document.addEventListener('visibilitychange',async()=>{if(document.visibilityState==='visible'&&started){
   try{audio&&audio.resume()}catch(e){}try{await navigator.wakeLock.request('screen')}catch(e){}}});
 

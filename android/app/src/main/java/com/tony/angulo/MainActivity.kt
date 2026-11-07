@@ -91,6 +91,7 @@ class MainActivity : Activity() {
             val ok = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
             micRequest?.let { if (ok) it.grant(it.resources) else it.deny() }; micRequest = null
         }
+        if (requestCode == 9) arrancarServicio()   // arranca aunque falte algún permiso: el botón sigue funcionando
         if (requestCode == 7) {
             val ok = grantResults.isNotEmpty() && grantResults.any { it == PackageManager.PERMISSION_GRANTED }
             geoCallback?.invoke(geoOrigin, ok, ok); geoCallback = null
@@ -117,7 +118,34 @@ class MainActivity : Activity() {
         return super.dispatchKeyEvent(event)
     }
 
+    // ---------- servicio en segundo plano ----------
+    private fun arrancarServicio() {
+        startForegroundService(Intent(this, AnguloService::class.java))
+        // Xiaomi cierra las apps en segundo plano: pedimos quitar la optimización de batería (solo la primera vez)
+        val pm = getSystemService(android.os.PowerManager::class.java)
+        val prefs = getSharedPreferences("angulo", MODE_PRIVATE)
+        if (!pm.isIgnoringBatteryOptimizations(packageName) && !prefs.getBoolean("bateriaPedida", false)) {
+            prefs.edit().putBoolean("bateriaPedida", true).apply()
+            try { startActivity(Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, android.net.Uri.parse("package:" + packageName))) } catch (_: Exception) {}
+        }
+    }
+    private fun pedirPermisosYArrancar() {
+        val faltan = mutableListOf<String>()
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) faltan += Manifest.permission.RECORD_AUDIO
+        if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) faltan += Manifest.permission.POST_NOTIFICATIONS
+        if (faltan.isEmpty()) arrancarServicio() else requestPermissions(faltan.toTypedArray(), 9)
+    }
+
     inner class Puente {
+        @JavascriptInterface fun iniciar() { runOnUiThread { pedirPermisosYArrancar() } }
+        @JavascriptInterface fun estado(): String = AnguloService.estadoJson()
+        @JavascriptInterface fun reset() {
+            runOnUiThread {
+                if (AnguloService.running) AnguloService.instance?.activate() else pedirPermisosYArrancar()
+            }
+        }
+        @JavascriptInterface fun detener() { runOnUiThread { stopService(Intent(this@MainActivity, AnguloService::class.java)) } }
+
         @JavascriptInterface
         fun compartir(texto: String) {
             runOnUiThread {
