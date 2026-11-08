@@ -36,7 +36,7 @@ class AnguloService : Service(), SensorEventListener {
         fun estadoJson(): String {
             val left = if (active) max(0L, (until - SystemClock.elapsedRealtime() + 999) / 1000) else 0
             val hear = SystemClock.elapsedRealtime() - hearing < 300
-            return """{"running":$running,"active":$active,"angle":${"%.2f".format(java.util.Locale.US, angle)},"left":$left,"hear":$hear,"mic":$micOk,"sensor":$sensorOk,"vol":$vol}"""
+            return """{"running":$running,"active":$active,"angle":${"%.2f".format(java.util.Locale.US, angle.coerceIn(-45.0, 45.0))},"left":$left,"hear":$hear,"mic":$micOk,"sensor":$sensorOk,"vol":$vol}"""
         }
     }
 
@@ -110,7 +110,7 @@ class AnguloService : Service(), SensorEventListener {
         val reset = PendingIntent.getService(this, 1, Intent(this, AnguloService::class.java).setAction(ACT_RESET), PendingIntent.FLAG_IMMUTABLE)
         val stop = PendingIntent.getService(this, 2, Intent(this, AnguloService::class.java).setAction(ACT_STOP), PendingIntent.FLAG_IMMUTABLE)
         val txt = when {
-            active -> "Midiendo · ${abs(angle).roundToInt()}° · ${max(0L, (until - SystemClock.elapsedRealtime() + 999) / 1000)} s"
+            active -> "Midiendo · ${min(45, abs(angle).roundToInt())}° · ${max(0L, (until - SystemClock.elapsedRealtime() + 999) / 1000)} s"
             !micOk -> "Sin micrófono · usa «Poner a 0°»"
             else -> "Escuchando · silba para empezar"
         }

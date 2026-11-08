@@ -229,7 +229,8 @@ const C={};['--road','--line','--car','--glass','--ok','--amber','--stop','--mut
 const colorFor=a=>(a=Math.abs(a))>=LV2?C['--stop']:a>=LV1?C['--amber']:C['--ok'];
 function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
 function draw(){
-  const target=active?angle:0;shown+=(target-shown)*0.35;
+  const lim=Math.max(-LV2,Math.min(LV2,angle));          // tope: nunca pasa de 45° a cada lado
+  const target=active?lim:0;shown+=(target-shown)*0.35;
   ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle=C['--road'];ctx.fillRect(0,0,W,H);
   const s=Math.min(H/7,W/4),cx=W/2,cy=H/2,col=colorFor(shown);
   ctx.lineWidth=2;ctx.setLineDash([10,10]);
@@ -248,7 +249,7 @@ function draw(){
   ctx.fillStyle='#fff3c4';rr(-Wd*.42,-L/2+2,Wd*.22,L*.025,2);ctx.fill();rr(Wd*.2,-L/2+2,Wd*.22,L*.025,2);ctx.fill();
   ctx.fillStyle='#d8443a';rr(-Wd*.42,L/2-L*.025-2,Wd*.22,L*.025,2);ctx.fill();rr(Wd*.2,L/2-L*.025-2,Wd*.22,L*.025,2);ctx.fill();
   ctx.fillStyle=col;rr(-Wd*.08,-L*.08,Wd*.16,L*.22,3);ctx.fill();ctx.restore();
-  const v=active?Math.round(Math.abs(angle)):'–',d=$('deg');
+  const v=active?Math.min(LV2,Math.round(Math.abs(lim))):'–',d=$('deg');
   if(d.dataset.v!=v){d.dataset.v=v;d.innerHTML=v+'<small>°</small>'}
   d.style.color=colorFor(target);
   const a=Math.max(-45,Math.min(45,shown)),p=Math.abs(a)/45*50,f=$('fill');
