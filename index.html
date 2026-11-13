@@ -68,7 +68,7 @@ canvas{display:block;width:100%;flex:1;min-height:0}
     <button type="button" class="reset" id="reset">Poner a 0°</button>
   </div>
 </div>
-<div class="overlay" id="ov"><b>Toca para empezar</b><span id="ovTxt">Coloca el teléfono en el soporte. Cuando vayas a aparcar, silba un trozo de una canción: la app se pone a 0° y mide durante un minuto.</span><button type="button" class="install" id="install" hidden>Instalar como app</button></div>
+<div class="overlay" id="ov"><b>Toca para empezar</b><span id="ovTxt">Coloca el teléfono en el soporte. Cuando vayas a aparcar, silba un trozo de una canción: la app se pone a 0° y mide hasta que vuelvas a silbar (o un minuto como máximo).</span><button type="button" class="install" id="install" hidden>Instalar como app</button></div>
 <div class="status" id="status" hidden><i class="dot" id="dot"></i><span id="stTxt">Silba para empezar</span></div>
 <div class="msg" id="msg"></div>
 
@@ -117,14 +117,14 @@ function WhistleDetector(ctx,stream,o){
 const $=id=>document.getElementById(id);
 const cv=$('cv'),ctx=cv.getContext('2d');
 const LV1=25,LV2=45,HYST=3,ACTIVE_MS=60000;
-let angle=0,shown=0,started=false,source=null,active=false,until=0,quietUntil=0,det=null;
+let angle=0,shown=0,started=false,source=null,active=false,until=0,quietUntil=0,det=null,activeAt=0,busyUntil=0;
 const armed={25:true,45:true};
 let audio=null;
 const toast=(t,ms=2200)=>{const m=$('msg');m.textContent=t;m.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>m.classList.remove('on'),ms)};
 window.__ang={get active(){return active},get angle(){return angle},triggers:[]};
 
 /* ---------- sonido ---------- */
-function tone(f,t0,dur,vol){const o=audio.createOscillator(),g=audio.createGain();o.type='sine';o.frequency.value=f;
+function tone(f,t0,dur,vol){busyUntil=Math.max(busyUntil,performance.now()+(t0-audio.currentTime+dur)*1000+600);const o=audio.createOscillator(),g=audio.createGain();o.type='sine';o.frequency.value=f;
   g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(vol,t0+0.015);g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
   o.connect(g).connect(audio.destination);o.start(t0);o.stop(t0+dur+0.05)}
 function chime(l){if(!audio)return;if(audio.state==='suspended')audio.resume();const t=audio.currentTime+0.02;
@@ -135,14 +135,14 @@ function checkAlerts(a){if(!active)return;const v=Math.abs(a);
   [LV1,LV2].forEach(l=>{if(armed[l]&&v>=l){armed[l]=false;alertAt(l)}else if(!armed[l]&&v<l-HYST)armed[l]=true})}
 
 /* ---------- medir / parar ---------- */
-function activate(why){zero();active=true;until=performance.now()+ACTIVE_MS;if(det)det.pause(true);
+function activate(why){zero();active=true;activeAt=performance.now();until=activeAt+ACTIVE_MS;
   $('app').classList.remove('idle');if(navigator.vibrate)navigator.vibrate(60);tick();window.__ang.triggers.push({t:performance.now(),why})}
-function deactivate(){active=false;$('app').classList.add('idle');quietUntil=performance.now()+1500}
+function deactivate(){active=false;$('app').classList.add('idle');quietUntil=performance.now()+3000;if(audio){const t=audio.currentTime+0.02;tone(784,t,0.18,0.3);tone(523,t+0.16,0.35,0.3)}}
 setInterval(()=>{if(!started||window.AndroidApp&&AndroidApp.estado)return;const t=performance.now();
   if(active&&t>until)deactivate();
-  if(!active&&det&&t>quietUntil)det.pause(false);
+  if(det)det.pause(t<busyUntil);   // no escucha mientras suenan sus propios pitidos
   const st=$('status');st.classList.toggle('on',active);
-  $('stTxt').textContent=active?'Midiendo · '+Math.ceil((until-t)/1000)+' s':det?'Silba para empezar':'Sin micrófono · usa el botón'},200);
+  $('stTxt').textContent=active?'Midiendo · '+Math.ceil((until-t)/1000)+' s · silba para parar':det?'Silba para empezar':'Sin micrófono · usa el botón'},200);
 
 /* ---------- giro del coche (orientación del teléfono) ---------- */
 let refYaw=null,lastYaw=null,unwrapped=0,axis=null;
@@ -181,7 +181,7 @@ async function start(){
   try{
     const st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
     det=WhistleDetector(audio,st);
-    det.onWhistle=()=>{if(!active)activate('silbido')};
+    det.onWhistle=()=>{const t=performance.now();if(active){if(t-activeAt>3000)deactivate()}else if(t>quietUntil)activate('silbido')};
     let hearT=0;det.onFrame=ok=>{if(ok)hearT=performance.now();$('dot').classList.toggle('hear',performance.now()-hearT<250)};
   }catch(e){toast('Sin micrófono: usa el botón «Poner a 0°»',4000)}
   setTimeout(()=>{
@@ -197,7 +197,7 @@ const NATIVE=!!(window.AndroidApp&&AndroidApp.estado);
 let nat={};
 function natStart(){AndroidApp.iniciar();started=true;$('ov').hidden=true;$('status').hidden=false}
 if(NATIVE){
-  $('ovTxt').textContent='Coloca el teléfono en el soporte y toca aquí. Funciona aunque uses Waze o apagues la pantalla: silba un trozo de una canción y medirá durante un minuto.';
+  $('ovTxt').textContent='Coloca el teléfono en el soporte y toca aquí. Funciona aunque uses Waze o apagues la pantalla: silba un trozo de una canción para empezar y otra vez para parar (se para sola al minuto).';
   try{nat=JSON.parse(AndroidApp.estado())}catch(e){}
   if(nat.running)natStart();
   setInterval(()=>{if(!started)return;try{nat=JSON.parse(AndroidApp.estado())}catch(e){return}
@@ -205,7 +205,7 @@ if(NATIVE){
     active=nat.active;angle=nat.angle;
     $('status').classList.toggle('on',active);$('dot').classList.toggle('hear',!!nat.hear);
     if(nat.vol===0&&!natStart.volWarn){natStart.volWarn=1;toast('El volumen multimedia está a cero: súbelo para oír los avisos',5000)}else if(nat.vol>0)natStart.volWarn=0;
-    $('stTxt').textContent=!nat.running?'Iniciando…':active?'Midiendo · '+nat.left+' s':nat.mic?'Silba para empezar':'Sin micrófono · usa el botón'},100);
+    $('stTxt').textContent=!nat.running?'Iniciando…':active?'Midiendo · '+nat.left+' s · silba para parar':nat.mic?'Silba para empezar':'Sin micrófono · usa el botón'},100);
 }
 $('ov').addEventListener('click',()=>{if(!started)NATIVE?natStart():start()});
 $('reset').addEventListener('click',()=>{

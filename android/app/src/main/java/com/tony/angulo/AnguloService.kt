@@ -110,7 +110,7 @@ class AnguloService : Service(), SensorEventListener {
         val reset = PendingIntent.getService(this, 1, Intent(this, AnguloService::class.java).setAction(ACT_RESET), PendingIntent.FLAG_IMMUTABLE)
         val stop = PendingIntent.getService(this, 2, Intent(this, AnguloService::class.java).setAction(ACT_STOP), PendingIntent.FLAG_IMMUTABLE)
         val txt = when {
-            active -> "Midiendo · ${min(45, abs(angle).roundToInt())}° · ${max(0L, (until - SystemClock.elapsedRealtime() + 999) / 1000)} s"
+            active -> "Midiendo ${min(45, abs(angle).roundToInt())}° · ${max(0L, (until - SystemClock.elapsedRealtime() + 999) / 1000)} s · silba para parar"
             !micOk -> "Sin micrófono · usa «Poner a 0°»"
             else -> "Escuchando · silba para empezar"
         }
@@ -143,10 +143,19 @@ class AnguloService : Service(), SensorEventListener {
     }
 
     // ---------- medir ----------
+    private var activeAt = 0L
+    private var quietUntil = 0L
+    // un silbido enciende; otro silbido (pasados 3 s, para no cortar el mismo silbido) apaga
+    private fun onWhistle() {
+        main.post {
+            val now = SystemClock.elapsedRealtime()
+            if (active) { if (now - activeAt > 3000) deactivate() }
+            else if (now > quietUntil) activate()
+        }
+    }
     fun activate() {
         main.post {
-            zero(); active = true; until = SystemClock.elapsedRealtime() + ACTIVE_MS
-            detector?.pause(true)
+            zero(); active = true; activeAt = SystemClock.elapsedRealtime(); until = activeAt + ACTIVE_MS
             vibrate(longArrayOf(0, 80, 60, 80))
             beeper.start()
             refreshNoti()
@@ -156,7 +165,7 @@ class AnguloService : Service(), SensorEventListener {
         active = false
         beeper.end()
         vibrate(longArrayOf(0, 200))
-        main.postDelayed({ if (!active) detector?.pause(false) }, 1500)
+        quietUntil = SystemClock.elapsedRealtime() + 3000
         refreshNoti()
     }
     private fun zero() { axis = 0; lastYaw = null; refYaw = null; unwrapped = 0.0; angle = 0.0; armed[0] = true; armed[1] = true }
@@ -201,7 +210,7 @@ class AnguloService : Service(), SensorEventListener {
                     catch (e: Exception) { micOk = false; return@Thread }
             if (r.state != AudioRecord.STATE_INITIALIZED) { micOk = false; r.release(); return@Thread }
             micOk = true
-            val det = Detector(sr) { activate() }
+            val det = Detector(sr) { onWhistle() }
             detector = det
             val buf = ShortArray(960); val f = FloatArray(960)
             r.startRecording()
@@ -209,6 +218,7 @@ class AnguloService : Service(), SensorEventListener {
                 val n = r.read(buf, 0, buf.size)
                 if (n <= 0) continue
                 for (i in 0 until n) f[i] = buf[i] / 32768f
+                det.pause(SystemClock.elapsedRealtime() < beeper.busyUntil)
                 det.feed(f, n)
                 if (det.lastOk) hearing = SystemClock.elapsedRealtime()
             }
@@ -246,7 +256,12 @@ class Beeper(ctx: Context) {
     private val s25 = tones(doubleArrayOf(784.0, 0.0, 0.45, 0.6), doubleArrayOf(1046.5, 0.15, 0.6, 0.55))
     private val s45 = tones(doubleArrayOf(1046.5, 0.0, 0.3, 0.6), doubleArrayOf(1318.5, 0.12, 0.3, 0.55), doubleArrayOf(1568.0, 0.24, 0.7, 0.55))
 
-    private fun play(pcm: ShortArray) = h.post {
+    @Volatile var busyUntil = 0L
+    private fun play(pcm: ShortArray): Boolean {
+        busyUntil = max(busyUntil, SystemClock.elapsedRealtime()) + pcm.size * 1000L / sr + 600
+        return h.post { playNow(pcm) }
+    }
+    private fun playNow(pcm: ShortArray) {
         try {
             am.requestAudioFocus(focus)
             val tr = AudioTrack.Builder().setAudioAttributes(attrs)
